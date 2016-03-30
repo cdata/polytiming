@@ -50,6 +50,43 @@
     proto.attachedCallback = measuredMethod('attached', proto.attachedCallback);
   }
 
+  function statsForElementMethod(element, method) {
+    let measures = window.performance.getEntriesByName(`${element}-${method}`);
+    let count = measures.length;
+    let sum = measures.reduce(function(sum, measure) {
+      return sum + measure.duration;
+    }, 0);
+    let average = sum ? sum / count : 0;
+
+    return { count, average, sum };
+  }
+
+  window.console.polymerTimingCsv = function() {
+    let header = 'element';
+
+    measuredMethods.forEach(function(method) {
+      header = `${header},${method} #,${method} avg. ms,${method} total`;
+    });
+
+    let rows = header;
+
+    measuredElements.forEach(function(element) {
+      let row = element;
+
+      measuredMethods.forEach(function(method) {
+        let stats = statsForElementMethod(element, method);
+
+        Object.keys(stats).forEach(function(stat) {
+          row = `${row},${stats[stat]}`;
+        });
+      });
+
+      rows = `${rows}\n${row}`;
+    });
+
+    console.log(rows);
+  };
+
   window.console.polymerTiming = function() {
     let elementData = {};
 
@@ -57,16 +94,11 @@
       let methodData = {};
 
       measuredMethods.forEach(function(method) {
-        let measures = window.performance.getEntriesByName(`${element}-${method}`);
-        let count = measures.length;
-        let sum = measures.reduce(function(sum, measure) {
-          return sum + measure.duration;
-        }, 0);
-        let average = sum ? sum / count : 0;
+        let stats = statsForElementMethod(element, method);
 
-        methodData[`${method} #`] = count;
-        methodData[`${method} avg. ms`] = average || 0;
-        methodData[`${method} total`] = sum;
+        methodData[`${method} #`] = stats.count;
+        methodData[`${method} avg. ms`] = stats.average;
+        methodData[`${method} total`] = stats.sum;
       });
 
       elementData[element] = methodData;
