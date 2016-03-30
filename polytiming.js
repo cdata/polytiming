@@ -3,8 +3,18 @@
 
   let measuredElements = new Set();
   let measuredMethods = new Set();
+  let configuredMethods = window.location.search.slice(1).split('&')
+      .map(function(part) {
+        return part.split('=');
+      }).reduce(function(l, r) {
+        if (r[0] === 'instrumentPolymer') {
+          return l.concat(r[1].split(','));
+        }
+        return l;
+      }, []);
   let AuthenticPolymer;
   let AuthenticBase;
+  let AuthenticTemplatizer;
 
   Object.defineProperty(window, 'Polymer', {
     get: function() {
@@ -20,7 +30,17 @@
 
         set: function(Base) {
           AuthenticBase = Base;
-          instrumentLifecycle(Base);
+        }
+      });
+
+      Object.defineProperty(Polymer, 'Templatizer', {
+        get: function() {
+          return AuthenticTemplatizer;
+        },
+
+        set: function(Templatizer) {
+          AuthenticTemplatizer = Templatizer;
+          instrumentLifecycle(AuthenticBase, configuredMethods);
         }
       });
     }
@@ -45,9 +65,10 @@
     };
   }
 
-  function instrumentLifecycle(proto) {
-    proto.createdCallback = measuredMethod('created', proto.createdCallback);
-    proto.attachedCallback = measuredMethod('attached', proto.attachedCallback);
+  function instrumentLifecycle(proto, methods) {
+    methods.forEach(function(method) {
+      proto[method] = measuredMethod(method, proto[method]);
+    });
   }
 
   function statsForElementMethod(element, method) {
@@ -57,6 +78,26 @@
       return sum + measure.duration;
     }, 0);
     let average = sum ? sum / count : 0;
+
+    return { count, average, sum };
+  }
+
+  function statsForMethod(method) {
+    let count = 0;
+    let sum = 0;
+    let average = 0;
+
+    measuredMethods.forEach(function(_method) {
+      if (method === _method) {
+        measuredElements.forEach(function(element) {
+          let stats = statsForElementMethod(element, method)
+          sum += stats.sum;
+          count += stats.count;
+        });
+      };
+    });
+
+    average = count > 0 ? sum / count : average;
 
     return { count, average, sum };
   }
@@ -104,6 +145,13 @@
       elementData[element] = methodData;
     });
 
+    let totals = {};
+
+    measuredMethods.forEach(function(method) {
+      totals[method] = statsForMethod(method);
+    });
+
+    console.table(totals);
     console.table(elementData);
   }
 })();
