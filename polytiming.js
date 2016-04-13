@@ -1,17 +1,28 @@
 (function() {
   'use strict';
 
-  let measuredElements = new Set();
-  let measuredMethods = new Set();
-  let configuredMethods = window.location.search.slice(1).split('&')
-      .map(function(part) {
-        return part.split('=');
-      }).reduce(function(l, r) {
-        if (r[0] === 'instrumentPolymer') {
-          return l.concat(r[1].split(','));
-        }
-        return l;
-      }, []);
+  function setOfQueryParams(paramName) {
+    return new Set(window.location.search.slice(1).split('&')
+        .map(function(part) {
+          return part.split('=');
+        }).reduce(function(l, r) {
+          if (r[0] === paramName) {
+            return l.concat(r[1].split(','));
+          }
+          return l;
+        }, []));
+  }
+
+  const measuredElements = new Set();
+  const measuredMethods = new Set();
+  const configuredMethods = setOfQueryParams('instrumentPolymer')
+  const trackedElements = setOfQueryParams('trackElement')
+  let shouldTrackElement = (elementName) => true;
+  if (trackedElements.size > 0) {
+    shouldTrackElement = (elementName) => {
+      return trackedElements.has(elementName);
+    }
+  }
   let AuthenticPolymer;
   let AuthenticBase;
   let AuthenticTemplatizer;
@@ -55,6 +66,10 @@
       let endMark = `${elementName}-end`;
       let result;
 
+      if (!shouldTrackElement(element)) {
+        return work.apply(this, arguments);
+      }
+
       measuredElements.add(element);
 
       window.performance.mark(startMark);
@@ -66,9 +81,9 @@
   }
 
   function instrumentLifecycle(proto, methods) {
-    methods.forEach(function(method) {
+    for (const method of methods) {
       proto[method] = measuredMethod(method, proto[method]);
-    });
+    }
   }
 
   function statsForElementMethod(element, method) {
