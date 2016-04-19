@@ -15,8 +15,10 @@
 
   const measuredElements = new Set();
   const measuredMethods = new Set();
-  const configuredMethods = setOfQueryParams('instrumentPolymer')
-  const trackedElements = setOfQueryParams('trackElement')
+  const configuredMethods = setOfQueryParams('instrumentPolymer');
+  const trackedElements = setOfQueryParams('trackElement');
+  const recordedMeasures = setOfQueryParams('recordMeasure')
+
   let shouldTrackElement = (elementName) => true;
   if (trackedElements.size > 0) {
     shouldTrackElement = (elementName) => {
@@ -166,7 +168,34 @@
       totals[method] = statsForMethod(method);
     });
 
+
     console.table(totals);
     console.table(elementData);
+  }
+
+  if (recordedMeasures.size) {
+    window.addEventListener('load', function() {
+      window.setTimeout(function() {
+        recordedMeasures.forEach(measure => {
+          var entries = window.performance.getEntriesByName(measure);
+          if (!entries.length) {
+            console.warn(`No User Timing entries found for ${measure}!`);
+            return;
+          }
+          try {
+            var recorded = JSON.parse(localStorage.getItem(measure));
+          } catch (e) {}
+          recorded = recorded || [];
+          entries.forEach(entry => {
+            recorded.push(entry.duration);
+          });
+          console.log(`${recorded.length} records for ${measure}: ${recorded}`);
+          try {
+            localStorage.setItem(measure, JSON.stringify(recorded));
+          } catch (e) {}
+        });
+        console.log('Finished recording measures.');
+      }, 1000);
+    });
   }
 })();
