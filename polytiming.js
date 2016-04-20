@@ -195,7 +195,8 @@
             recorded.push(entryMetrics);
             console.log(entry, entryMetrics)
           });
-          console.log(`${recorded.length} records for ${measure}: ${recorded}`);
+          console.log(`${recorded.length} records for ${measure}:`);
+          console.table(recorded);
           try {
             localStorage.setItem(measure, JSON.stringify(recorded));
           } catch (e) {}
