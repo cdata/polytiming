@@ -7,7 +7,7 @@
           return part.split('=');
         }).reduce(function(l, r) {
           if (r[0] === paramName) {
-            return l.concat(r[1].split(/(?:,|%2C)/));
+            return l.concat(decodeURIComponent(r[1]).split(','));
           }
           return l;
         }, []));
