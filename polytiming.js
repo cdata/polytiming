@@ -30,6 +30,10 @@
   let AuthenticBase;
   let AuthenticTemplatizer;
 
+  if (!measureMetrics.size) {
+    measureMetrics.add('duration');
+  }
+
   Object.defineProperty(window, 'Polymer', {
     get: function() {
       return AuthenticPolymer;
