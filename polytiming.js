@@ -7,7 +7,7 @@
           return part.split('=');
         }).reduce(function(l, r) {
           if (r[0] === paramName) {
-            return l.concat(r[1].split(','));
+            return l.concat(r[1].split(/(?:,|%2C)/));
           }
           return l;
         }, []));
@@ -17,7 +17,8 @@
   const measuredMethods = new Set();
   const configuredMethods = setOfQueryParams('instrumentPolymer');
   const trackedElements = setOfQueryParams('trackElement');
-  const recordedMeasures = setOfQueryParams('recordMeasure')
+  const recordedMeasures = setOfQueryParams('recordMeasure');
+  const measureMetrics = setOfQueryParams('measureMetric');
 
   let shouldTrackElement = (elementName) => true;
   if (trackedElements.size > 0) {
@@ -187,7 +188,12 @@
           } catch (e) {}
           recorded = recorded || [];
           entries.forEach(entry => {
-            recorded.push(entry.duration);
+            let entryMetrics = {}
+            measureMetrics.forEach(metric => {
+              entryMetrics[metric] = entry[metric];
+            });
+            recorded.push(entryMetrics);
+            console.log(entry, entryMetrics)
           });
           console.log(`${recorded.length} records for ${measure}: ${recorded}`);
           try {
