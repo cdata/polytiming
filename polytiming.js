@@ -7,7 +7,7 @@
           return part.split('=');
         }).reduce(function(l, r) {
           if (r[0] === paramName) {
-            return l.concat(r[1].split(','));
+            return l.concat(r[1].split(/(?:,|%2C)/));
           }
           return l;
         }, []));
@@ -17,7 +17,7 @@
   const measuredMethods = new Set();
   const configuredMethods = setOfQueryParams('instrumentPolymer');
   const trackedElements = setOfQueryParams('trackElement');
-  const recordedMeasures = setOfQueryParams('recordMeasure')
+  const recordedMetrics = setOfQueryParams('recordMetric')
 
   let shouldTrackElement = (elementName) => true;
   if (trackedElements.size > 0) {
@@ -173,10 +173,10 @@
     console.table(elementData);
   }
 
-  if (recordedMeasures.size) {
+  if (recordedMetrics.size) {
     window.addEventListener('load', function() {
       window.setTimeout(function() {
-        recordedMeasures.forEach(measure => {
+        recordedMetrics.forEach(measure => {
           var entries = window.performance.getEntriesByName(measure);
           if (!entries.length) {
             console.warn(`No User Timing entries found for ${measure}!`);
@@ -187,7 +187,11 @@
           } catch (e) {}
           recorded = recorded || [];
           entries.forEach(entry => {
-            recorded.push(entry.duration);
+            if (entry.entryType == 'mark') {
+              recorded.push(entry.startTime);
+            } else {
+              recorded.push(entry.duration);
+            }
           });
           console.log(`${recorded.length} records for ${measure}: ${recorded}`);
           try {
