@@ -7,7 +7,7 @@
           return part.split('=');
         }).reduce(function(l, r) {
           if (r[0] === paramName) {
-            return l.concat(r[1].split(','));
+            return l.concat(decodeURIComponent(r[1]).split(','));
           }
           return l;
         }, []));
@@ -15,8 +15,10 @@
 
   const measuredElements = new Set();
   const measuredMethods = new Set();
-  const configuredMethods = setOfQueryParams('instrumentPolymer')
-  const trackedElements = setOfQueryParams('trackElement')
+  const configuredMethods = setOfQueryParams('instrumentPolymer');
+  const trackedElements = setOfQueryParams('trackElement');
+  const recordedMetrics = setOfQueryParams('recordMetric')
+
   let shouldTrackElement = (elementName) => true;
   if (trackedElements.size > 0) {
     shouldTrackElement = (elementName) => {
@@ -166,7 +168,38 @@
       totals[method] = statsForMethod(method);
     });
 
+
     console.table(totals);
     console.table(elementData);
+  }
+
+  if (recordedMetrics.size) {
+    window.addEventListener('load', function() {
+      window.setTimeout(function() {
+        recordedMetrics.forEach(measure => {
+          var entries = window.performance.getEntriesByName(measure);
+          if (!entries.length) {
+            console.warn(`No User Timing entries found for ${measure}!`);
+            return;
+          }
+          try {
+            var recorded = JSON.parse(localStorage.getItem(measure));
+          } catch (e) {}
+          recorded = recorded || [];
+          entries.forEach(entry => {
+            if (entry.entryType == 'mark') {
+              recorded.push(entry.startTime);
+            } else {
+              recorded.push(entry.duration);
+            }
+          });
+          console.log(`${recorded.length} records for ${measure}: ${recorded}`);
+          try {
+            localStorage.setItem(measure, JSON.stringify(recorded));
+          } catch (e) {}
+        });
+        console.log('Finished recording measures.');
+      }, 1000);
+    });
   }
 })();
