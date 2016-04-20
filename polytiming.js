@@ -7,7 +7,7 @@
           return part.split('=');
         }).reduce(function(l, r) {
           if (r[0] === paramName) {
-            return l.concat(r[1].split(','));
+            return l.concat(r[1].split(/(?:,|%2C)/));
           }
           return l;
         }, []));
@@ -15,17 +15,26 @@
 
   const measuredElements = new Set();
   const measuredMethods = new Set();
-  const configuredMethods = setOfQueryParams('instrumentPolymer')
-  const trackedElements = setOfQueryParams('trackElement')
+  const configuredMethods = setOfQueryParams('instrumentPolymer');
+  const trackedElements = setOfQueryParams('trackElement');
+  const recordedMeasures = setOfQueryParams('recordMeasure');
+  const measureMetrics = setOfQueryParams('measureMetric');
+
   let shouldTrackElement = (elementName) => true;
+
   if (trackedElements.size > 0) {
     shouldTrackElement = (elementName) => {
       return trackedElements.has(elementName);
     }
   }
+
   let AuthenticPolymer;
   let AuthenticBase;
   let AuthenticTemplatizer;
+
+  if (!measureMetrics.size) {
+    measureMetrics.add('duration');
+  }
 
   Object.defineProperty(window, 'Polymer', {
     get: function() {
@@ -34,6 +43,7 @@
 
     set: function(Polymer) {
       AuthenticPolymer = Polymer;
+
       Object.defineProperty(Polymer, 'Base', {
         get: function() {
           return AuthenticBase;
@@ -59,6 +69,7 @@
 
   function measuredMethod(name, work) {
     measuredMethods.add(name);
+
     return function() {
       let element = this.is || this.tagName;
       let elementName = `${element}-${name}`;
@@ -76,6 +87,7 @@
       result = work.apply(this, arguments);
       window.performance.mark(endMark);
       window.performance.measure(elementName, startMark, endMark);
+
       return result;
     };
   }
@@ -92,6 +104,7 @@
     let sum = measures.reduce(function(sum, measure) {
       return sum + measure.duration;
     }, 0);
+
     let average = sum ? sum / count : 0;
 
     return { count, average, sum };
@@ -106,6 +119,7 @@
       if (method === _method) {
         measuredElements.forEach(function(element) {
           let stats = statsForElementMethod(element, method)
+
           sum += stats.sum;
           count += stats.count;
         });
@@ -166,7 +180,48 @@
       totals[method] = statsForMethod(method);
     });
 
+
     console.table(totals);
     console.table(elementData);
+  }
+
+  if (recordedMeasures.size) {
+    window.addEventListener('load', function() {
+      window.setTimeout(function() {
+        recordedMeasures.forEach(measure => {
+          var entries = window.performance.getEntriesByName(measure);
+
+          if (!entries.length) {
+            console.warn(`No User Timing entries found for ${measure}!`);
+
+            return;
+          }
+
+          try {
+            var recorded = JSON.parse(localStorage.getItem(measure));
+          } catch (e) {}
+
+          recorded = recorded || [];
+
+          entries.forEach(entry => {
+            let entryMetrics = {}
+
+            measureMetrics.forEach(metric => {
+              entryMetrics[metric] = entry[metric];
+            });
+
+            recorded.push(entryMetrics);
+          });
+
+          console.log(`${recorded.length} records for ${measure}:`);
+          console.table(recorded);
+
+          try {
+            localStorage.setItem(measure, JSON.stringify(recorded));
+          } catch (e) {}
+        });
+        console.log('Finished recording measures.');
+      }, 1000);
+    });
   }
 })();
