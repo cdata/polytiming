@@ -17,7 +17,9 @@
   const measuredMethods = new Set();
   const configuredMethods = setOfQueryParams('instrumentPolymer');
   const trackedElements = setOfQueryParams('trackElement');
-  const recordedMetrics = setOfQueryParams('recordMetric')
+  const recordedMetrics = setOfQueryParams('recordMetric');
+  const recordMetricFirstOnly = setOfQueryParams('recordMetricFirstOnly');
+  const autoRefresh = setOfQueryParams('autoRefresh');
 
   let shouldTrackElement = (elementName) => true;
   if (trackedElements.size > 0) {
@@ -186,6 +188,12 @@
             var recorded = JSON.parse(localStorage.getItem(measure));
           } catch (e) {}
           recorded = recorded || [];
+
+          if (recordMetricFirstOnly.has(measure) && entries.length > 1) {
+            let removedEntries = entries.splice(1, entries.length - 1);
+            console.log(`Removed ${removedEntries.length} trailing entries for ${measure}.`);
+          }
+
           entries.forEach(entry => {
             if (entry.entryType == 'mark') {
               recorded.push(entry.startTime);
@@ -199,6 +207,12 @@
           } catch (e) {}
         });
         console.log('Finished recording measures.');
+
+        if (autoRefresh.size > 0) {
+          window.setTimeout(function() {
+            window.history.go();
+          }, Array.from(autoRefresh.values())[0]);
+        }
       }, 1000);
     });
   }
